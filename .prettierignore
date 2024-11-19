@@ -2,3 +2,13 @@
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Ignore node_modules:
+node_modules
+
+# Ignore lock files:
+package-lock.json
+yarn.lock
+
+# Ignore environment variables:
+.env

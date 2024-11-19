@@ -1,2 +1,14 @@
+<script lang="ts">
+  import debug from 'debug';
+
+  const log = debug('app:home');
+
+  const { data } = $props();
+
+  log('heeeey, this is the data', data);
+</script>
+
 <h1>Welcome to SvelteKit</h1>
 <p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+
+<p>{data.message}</p>
