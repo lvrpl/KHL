@@ -38,6 +38,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.46.1",
     "@types/debug": "^4.1.12",
-    "debug": "^4.3.7"
+    "debug": "^4.3.7",
+    "openai": "^4.72.0"
   }
 }
