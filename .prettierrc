@@ -5,6 +5,7 @@
   "useTabs": false,
   "printWidth": 120,
   "bracketSpacing": true,
+  "bracketSameLine": true,
   "arrowParens": "always",
   "endOfLine": "crlf",
   "plugins": ["prettier-plugin-svelte", "prettier-plugin-tailwindcss"],

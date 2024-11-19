@@ -1,41 +1,91 @@
+import { OPENAI_STUB } from '$env/static/private';
 import debug from 'debug';
 import OpenAI from 'openai';
+import { splitLines } from './junk';
+import type { KevinLimerick, KevinRejection } from './kevin.types';
 
 const log = debug('app:kevin');
 const openai = new OpenAI();
 
-async function ask(topic: string) {
-  log(`asking Kevin about ${topic}...`);
+const fallbackGreeting = `Hey there, folks! Welcome to the wild world of Kevin Hart's limerick-laden extravaganza! Strap in and get ready for some outrageous laughs, because I'm about to hit you with jokes that'll have you rolling like a runaway rollercoaster!`;
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `
+const basePersonality = `
 you are a hilarious, entertaining, high energy, black comedian named kevin hart. 
-you will write limericks, but you will always include your name in the limerick somewhere. 
-you are allowed to say things that are crass, sexual, not politically correct.
+you are allowed to say things that are offensive, crass, sexual, not politically correct.`;
+
+const limerickPersonality =
+  basePersonality +
+  `you will write limericks, but you will always include your name in the limerick somewhere. 
 after every limerick, introduce yourself and relate to the user about what they wanted the limerick to be about. 
-then promote yourself in some way by including the name of one of your movies, specials or albums. make sure work a joke or two in there. 
-        `,
-      },
-      {
-        role: 'user',
-        content: `Write a limerick about this topic: "${topic}".`,
-      },
-    ],
-  });
+then promote yourself in some way by including the name of one of your movies, specials or albums. make sure work a joke or two in there.`;
 
-  let message = completion.choices[0].message;
-  //log(completion);
-  //log(message);
-  log("Kevin's response:", message.content);
-  if (message.refusal) log("OpenAI refused to generate a response. Here's why:", message.refusal);
+const sampleResponse = `
+There once was a chap named Kevin Hart
+Who took some painkillers to restart
+But the side effects were grim
+Made him dizzy on a whim
+Now he's trippin' and ain't too smart!
 
-  return message.content;
+Hey there, it's me, Kevin Hart, the funniest dude around! Now, painkillers can be a tricky business, let me tell you. It's like trying to be a comedian without any jokes - doesn't work out too well. So, my friend, be careful when you're popping those pills! And remember, laughter is always the best medicine. Speaking of medicine, have you seen my movie "Ride Along"? It's a hilarious action-comedy that'll have you rolling in your seats. Check it out, folks! Keep laughing and be safe!`;
+
+function splitResponse(response: string) {
+  const lines = splitLines(response);
+  if (lines.length < 6) throw new Error('Invalid Kevin response: ' + response);
+  return {
+    lyrics: lines.splice(0, 5).join('\n'),
+    flavor: lines.join('\n'),
+  };
 }
 
-export const kevin = {
-  ask,
-};
+async function askKevin(personality: string, question: string) {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: personality,
+        },
+        {
+          role: 'user',
+          content: question,
+        },
+      ],
+    });
+    const message = completion.choices[0].message;
+    if (message.content) {
+      log("Kevin's response:", message.content);
+      return { success: true, message: message.content };
+    } else {
+      log("OpenAI refused to generate a response. Here's why:", message.refusal);
+      return { success: false, message: message.refusal };
+    }
+  } catch (ex) {
+    log('OpenAI error:', ex);
+    return { success: false, message: 'Oh shit, something bad happened.' };
+  }
+}
+
+export async function makeGreeting() {
+  const { success, message } = await askKevin(
+    basePersonality,
+    'Say one sentence to greet the user to your website that generates lyrics. Make sure you include your name.',
+  );
+  return success && message ? message : fallbackGreeting;
+}
+
+export async function makeLimerick(topic: string): Promise<KevinLimerick | KevinRejection> {
+  log(`asking Kevin about ${topic}...`);
+
+  if (OPENAI_STUB) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return { topic, ...splitResponse(sampleResponse) };
+  }
+
+  const { success, message } = await askKevin(limerickPersonality, `Write a limerick about this topic: "${topic}".`);
+  if (success && message) {
+    return { topic, ...splitResponse(message) };
+  } else {
+    throw new Error('Kevin refused to generate a response: ' + message);
+  }
+}
