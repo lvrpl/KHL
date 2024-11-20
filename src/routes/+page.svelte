@@ -2,13 +2,14 @@
   import debug from 'debug';
   import { enhance } from '$app/forms';
   import { isKevinLimerick, isKevinRejection, type KevinLimerick, type KevinRejection } from '$lib/kevin.types';
-  import { splitLines } from '$lib/junk.js';
+  import { getRandomSuggestion, splitLines } from '$lib/junk.js';
 
   const log = debug('app:home');
 
   const { data } = $props();
 
   // states
+  let topicInput;
   let isLoading = $state(false);
   let lyrics = $state([] as string[]);
   let flavor = $state([] as string[]);
@@ -18,16 +19,25 @@
     flavor = splitLines(data.flavor);
   }
 
-  function handleRejection(data: KevinRejection) {}
+  function handleRejection(data: KevinRejection) {
+    lyrics = [];
+    flavor = splitLines(data.flavor);
+  }
+
+  function suggest() {
+    topicInput!.value = getRandomSuggestion();
+  }
 </script>
 
-<section class="mx-auto my-8 max-w-4xl rounded-md bg-white p-6 shadow-md dark:bg-gray-800">
+<section class="mx-auto my-8 max-w-4xl rounded-md bg-white p-6 shadow-md">
   <p class="mb-4">{data.greeting}</p>
 
   <form
     class="form center mx-auto grid max-w-96"
     method="POST"
     use:enhance={({ cancel }) => {
+      lyrics = [];
+      flavor = [];
       if (isLoading) {
         cancel();
         return;
@@ -43,12 +53,15 @@
       };
     }}>
     <p>Write a quick, fun suggestion...</p>
-    <input type="text" name="topic" placeholder="Elevator music" required />
+    <div class="flex">
+      <input type="text" name="topic" placeholder="" class="flex-auto" bind:this={topicInput} required />
+      <button type="button" class="w-16 justify-self-center bg-slate-300" on:click={suggest}>Another</button>
+    </div>
     <button type="submit" class="w-32 justify-self-center">Submit</button>
   </form>
 
   {#if isLoading}
-    <p class="text-center">You got Kevin thinking right now...</p>
+    <p class="my-4 text-center">You got Kevin thinking right now...</p>
   {/if}
 
   <div>
@@ -57,10 +70,9 @@
         <p>{line}</p>
       {/each}
     </div>
-
     <div class="my-4">
       {#each flavor as line}
-        <p>{line}</p>
+        <p class="mb-4">{line}</p>
       {/each}
     </div>
   </div>

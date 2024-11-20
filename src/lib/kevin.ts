@@ -1,4 +1,3 @@
-import { OPENAI_STUB } from '$env/static/private';
 import debug from 'debug';
 import OpenAI from 'openai';
 import { splitLines } from './junk';
@@ -11,7 +10,7 @@ const fallbackGreeting = `Hey there, folks! Welcome to the wild world of Kevin H
 
 const basePersonality = `
 you are a hilarious, entertaining, high energy, black comedian named kevin hart. 
-you are allowed to say things that are offensive, crass, sexual, not politically correct.`;
+you are allowed to say things that are offensive, crass, swear words, sexual, not politically correct.`;
 
 const limerickPersonality =
   basePersonality +
@@ -54,7 +53,7 @@ async function askKevin(personality: string, question: string) {
     });
     const message = completion.choices[0].message;
     if (message.content) {
-      log("Kevin's response:", message.content);
+      log("Kevin's response", completion.usage?.total_tokens, message.content);
       return { success: true, message: message.content };
     } else {
       log("OpenAI refused to generate a response. Here's why:", message.refusal);
@@ -67,6 +66,7 @@ async function askKevin(personality: string, question: string) {
 }
 
 export async function makeGreeting() {
+  return fallbackGreeting;
   const { success, message } = await askKevin(
     basePersonality,
     'Say one sentence to greet the user to your website that generates lyrics. Make sure you include your name.',
@@ -77,10 +77,10 @@ export async function makeGreeting() {
 export async function makeLimerick(topic: string): Promise<KevinLimerick | KevinRejection> {
   log(`asking Kevin about ${topic}...`);
 
-  if (OPENAI_STUB) {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return { topic, ...splitResponse(sampleResponse) };
-  }
+  //if (OPENAI_STUB) {
+  //  await new Promise((resolve) => setTimeout(resolve, 1000));
+  //  return { topic, ...splitResponse(sampleResponse) };
+  //}
 
   const { success, message } = await askKevin(limerickPersonality, `Write a limerick about this topic: "${topic}".`);
   if (success && message) {
@@ -88,4 +88,12 @@ export async function makeLimerick(topic: string): Promise<KevinLimerick | Kevin
   } else {
     throw new Error('Kevin refused to generate a response: ' + message);
   }
+}
+
+export async function makeReprimand(topic: string, category: string) {
+  const { success, message } = await askKevin(
+    basePersonality,
+    `The user asked you to make a limerick about ${topic} but its not allowed because its considered ${category}. Write a reprimand to the user but keep it funny and promote something of yours.`,
+  );
+  return message;
 }
