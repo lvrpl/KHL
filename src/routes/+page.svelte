@@ -30,6 +30,7 @@
 </script>
 
 <section class="mx-auto my-8 max-w-4xl rounded-md bg-white p-6 shadow-md">
+  <h1 class="mb-4 text-center text-2xl font-bold">Kevin Hart Limericks</h1>
   <p class="mb-4">{data.greeting}</p>
 
   <form
@@ -53,11 +54,11 @@
       };
     }}>
     <p>Write a quick, fun suggestion...</p>
-    <div class="flex">
-      <input type="text" name="topic" placeholder="" class="flex-auto" bind:this={topicInput} required />
-      <button type="button" class="w-16 justify-self-center bg-slate-300" on:click={suggest}>Another</button>
+    <input type="text" name="topic" placeholder="" class="flex-auto" bind:this={topicInput} required />
+    <div class="flex justify-center">
+      <button type="button" class="h-12 w-24" onclick={suggest}>Suggest</button>
+      <button type="submit" class="h-12 w-24">Submit</button>
     </div>
-    <button type="submit" class="w-32 justify-self-center">Submit</button>
   </form>
 
   {#if isLoading}

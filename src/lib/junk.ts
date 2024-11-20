@@ -55,7 +55,7 @@ export function getRandomGreeting() {
 export const scoresThresholds: OpenAI.Moderation.CategoryScores = {
   harassment: 0.5,
   'harassment/threatening': 0.5,
-  sexual: 0.3,
+  sexual: 0.5,
   hate: 0.5,
   'hate/threatening': 0.5,
   illicit: 0.5,
@@ -82,5 +82,5 @@ export function getWorstScore(scores: OpenAI.Moderation.CategoryScores) {
       category = key;
     }
   }
-  return { over: max, category };
+  return { score: category ? sc[category] : 0, over: max, category };
 }

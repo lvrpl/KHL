@@ -1,3 +1,8 @@
+import type { Tables } from './database.types';
+
+export type Limerick = Tables<'limericks'>;
+export type Rejects = Tables<'rejects'>;
+
 export type KevinLimerick = {
   topic: string;
   lyrics: string;

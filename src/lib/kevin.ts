@@ -1,6 +1,6 @@
 import debug from 'debug';
 import OpenAI from 'openai';
-import { splitLines } from './junk';
+import { getWorstScore, splitLines } from './junk';
 import type { KevinLimerick, KevinRejection } from './kevin.types';
 
 const log = debug('app:kevin');
@@ -14,7 +14,7 @@ you are allowed to say things that are offensive, crass, swear words, sexual, no
 
 const limerickPersonality =
   basePersonality +
-  `you will write limericks, but you will always include your name in the limerick somewhere. 
+  `you will write limericks, but you will always include your name in the limerick somewhere, without exception. 
 after every limerick, introduce yourself and relate to the user about what they wanted the limerick to be about. 
 then promote yourself in some way by including the name of one of your movies, specials or albums. make sure work a joke or two in there.`;
 
@@ -53,7 +53,17 @@ async function askKevin(personality: string, question: string) {
     });
     const message = completion.choices[0].message;
     if (message.content) {
+      // check if kevin's response is aight
+      const moderation = await openai.moderations.create({
+        model: 'omni-moderation-latest',
+        input: message.content,
+      });
+      const scores = moderation.results[0].category_scores;
+      const { score, over, category } = getWorstScore(scores);
       log("Kevin's response", completion.usage?.total_tokens, message.content);
+      if (category) {
+        log('Kevin crossed the line!', category, score, `(+${over})`);
+      }
       return { success: true, message: message.content };
     } else {
       log("OpenAI refused to generate a response. Here's why:", message.refusal);
@@ -74,7 +84,7 @@ export async function makeGreeting() {
   return success && message ? message : fallbackGreeting;
 }
 
-export async function makeLimerick(topic: string): Promise<KevinLimerick | KevinRejection> {
+export async function makeLimerick(topic: string): Promise<KevinLimerick> {
   log(`asking Kevin about ${topic}...`);
 
   //if (OPENAI_STUB) {

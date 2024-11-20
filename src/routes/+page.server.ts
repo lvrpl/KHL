@@ -2,6 +2,7 @@ import { getRandomGreeting, getWorstScore } from '$lib/junk.js';
 import { makeGreeting, makeLimerick, makeReprimand } from '$lib/kevin.js';
 import debug from 'debug';
 import OpenAI from 'openai';
+import { supabase } from '$lib/supabaseClient.js';
 
 const log = debug('app:home');
 const openai = new OpenAI();
@@ -20,14 +21,37 @@ export const actions = {
       input: topic,
     });
     const scores = moderation.results[0].category_scores;
-    const { over, category } = getWorstScore(scores);
-    log('scores for ' + topic, category + ' ' + over, scores);
+    const { score, over, category } = getWorstScore(scores);
+    log(`scores for ${topic} -> ${category} ${score} (+${over})`, scores);
 
-    if (over > 0) {
+    if (category) {
       const reprimand = await makeReprimand(topic, category);
+      // URGENT: figure out why the supabase data typing isnt working
+      const { data, error } = await supabase
+        .from('rejects')
+        .insert({
+          topic,
+          category,
+          score,
+          all: scores,
+          flavor: reprimand,
+        })
+        .select()
+        .single();
       return { topic, reason: category, flavor: reprimand };
     } else {
+      // URGENT: are we returning rejection here?
       const response = await makeLimerick(topic);
+      const { data, error } = await supabase
+        .from('limericks')
+        .insert({
+          topic,
+          scores,
+          lyrics: response.lyrics,
+          flavor: response.flavor,
+        })
+        .select()
+        .single();
       return response;
     }
   },
