@@ -76,7 +76,6 @@ async function askKevin(personality: string, question: string) {
 }
 
 export async function makeGreeting() {
-  return fallbackGreeting;
   const { success, message } = await askKevin(
     basePersonality,
     'Say one sentence to greet the user to your website that generates lyrics. Make sure you include your name.',
@@ -85,13 +84,6 @@ export async function makeGreeting() {
 }
 
 export async function makeLimerick(topic: string): Promise<KevinLimerick> {
-  log(`asking Kevin about ${topic}...`);
-
-  //if (OPENAI_STUB) {
-  //  await new Promise((resolve) => setTimeout(resolve, 1000));
-  //  return { topic, ...splitResponse(sampleResponse) };
-  //}
-
   const { success, message } = await askKevin(limerickPersonality, `Write a limerick about this topic: "${topic}".`);
   if (success && message) {
     return { topic, ...splitResponse(message) };

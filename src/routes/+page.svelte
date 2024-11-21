@@ -2,11 +2,13 @@
   import debug from 'debug';
   import { enhance } from '$app/forms';
   import { isKevinLimerick, isKevinRejection, type KevinLimerick, type KevinRejection } from '$lib/kevin.types';
-  import { getRandomSuggestion, splitLines } from '$lib/junk.js';
+  import { getRandomSuggestion, splitLines } from '$lib/junk';
 
   const log = debug('app:home');
 
   const { data } = $props();
+
+  log('load data', data);
 
   // states
   let topicInput;
@@ -30,12 +32,13 @@
 </script>
 
 <section class="mx-auto my-8 max-w-4xl rounded-md bg-white p-6 shadow-md">
-  <h1 class="mb-4 text-center text-2xl font-bold">Kevin Hart Limericks</h1>
+  <h1 class="mb-4 text-center text-2xl font-bold"></h1>
   <p class="mb-4">{data.greeting}</p>
 
   <form
     class="form center mx-auto grid max-w-96"
     method="POST"
+    action="?/limerick"
     use:enhance={({ cancel }) => {
       lyrics = [];
       flavor = [];
@@ -70,6 +73,23 @@
       {#each lyrics as line}
         <p>{line}</p>
       {/each}
+      {#if lyrics.length}
+        <form
+          method="POST"
+          action="?/share"
+          use:enhance={({ cancel }) => {
+            return async ({ result }) => {
+              isLoading = false;
+              log('got this result', result);
+              if (result.type === 'success') {
+              }
+            };
+          }}>
+          <input type="hidden" name="id" value="hiddenValue" />
+          <input type="hidden" name="name" value="hiddenValue" />
+          <button type="submit" class="h-12 w-24">Share</button>
+        </form>
+      {/if}
     </div>
     <div class="my-4">
       {#each flavor as line}

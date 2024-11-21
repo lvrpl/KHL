@@ -84,3 +84,7 @@ export function getWorstScore(scores: OpenAI.Moderation.CategoryScores) {
   }
   return { score: category ? sc[category] : 0, over: max, category };
 }
+
+export function generateRandomString(length: number): string {
+  return Array.from({ length }, () => Math.random().toString(36).charAt(2)).join('');
+}
