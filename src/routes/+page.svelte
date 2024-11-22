@@ -16,6 +16,9 @@
   let lyrics = $state([] as string[]);
   let flavor = $state([] as string[]);
 
+  // elements
+  let shareDialog: HTMLDialogElement;
+
   function handleLimerick(data: KevinLimerick) {
     lyrics = splitLines(data.lyrics);
     flavor = splitLines(data.flavor);
@@ -67,6 +70,26 @@
   {#if isLoading}
     <p class="my-4 text-center">You got Kevin thinking right now...</p>
   {/if}
+
+  <button onclick={() => shareDialog.showModal()}>Share</button>
+  <dialog bind:this={shareDialog} class="min-h-48 w-96">
+    <form
+      method="POST"
+      action="?/share"
+      use:enhance={({ cancel }) => {
+        return async ({ result }) => {
+          isLoading = false;
+          log('got this result', result);
+          if (result.type === 'success') {
+          }
+        };
+      }}>
+      <input type="hidden" name="id" value="hiddenValue" />
+      <input type="text" name="name" value="" />
+      <button type="submit" class="h-12 w-24">Share</button>
+      <button type="button" onclick={() => shareDialog.close()}>Nevermind...</button>
+    </form>
+  </dialog>
 
   <div>
     <div class="my-4 text-center">

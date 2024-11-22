@@ -64,6 +64,7 @@ Now he's trippin' and ain't too smart!`,
           topic,
           category,
           score,
+          sessionId: session.data.sessionId,
           all: scores,
           flavor: reprimand,
         })
@@ -78,6 +79,7 @@ Now he's trippin' and ain't too smart!`,
         .insert({
           topic,
           scores,
+          sessionId: session.data.sessionId,
           lyrics: response.lyrics,
           flavor: response.flavor,
         })

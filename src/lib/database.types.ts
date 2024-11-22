@@ -11,6 +11,7 @@ export type Database = {
           id: number;
           lyrics: string;
           scores: Json;
+          sessionId: string;
           shared: boolean;
           topic: string;
         };
@@ -21,6 +22,7 @@ export type Database = {
           id?: number;
           lyrics: string;
           scores?: Json;
+          sessionId?: string;
           shared?: boolean;
           topic: string;
         };
@@ -31,6 +33,7 @@ export type Database = {
           id?: number;
           lyrics?: string;
           scores?: Json;
+          sessionId?: string;
           shared?: boolean;
           topic?: string;
         };
@@ -44,6 +47,7 @@ export type Database = {
           flavor: string;
           id: number;
           score: number;
+          sessionId: string;
           topic: string;
         };
         Insert: {
@@ -52,7 +56,8 @@ export type Database = {
           createdAt?: string;
           flavor: string;
           id?: number;
-          score?: number;
+          score: number;
+          sessionId?: string;
           topic: string;
         };
         Update: {
@@ -62,25 +67,8 @@ export type Database = {
           flavor?: string;
           id?: number;
           score?: number;
+          sessionId?: string;
           topic?: string;
-        };
-        Relationships: [];
-      };
-      test: {
-        Row: {
-          created_at: string;
-          id: number;
-          kevins: number;
-        };
-        Insert: {
-          created_at?: string;
-          id?: number;
-          kevins?: number;
-        };
-        Update: {
-          created_at?: string;
-          id?: number;
-          kevins?: number;
         };
         Relationships: [];
       };
