@@ -1,5 +1,14 @@
 import type OpenAI from 'openai';
 
+export class KevinError extends Error {
+  flavor: string;
+  constructor(message: string, flavor: string) {
+    super(message);
+    this.name = 'KevinError';
+    this.flavor = flavor;
+  }
+}
+
 // takes a string and splits it into lines, trimming whitespace and removing empty lines
 export function splitLines(text: string): string[] {
   return text
@@ -50,39 +59,6 @@ const greetings = [
 
 export function getRandomGreeting() {
   return greetings[Math.floor(Math.random() * greetings.length)];
-}
-
-export const scoresThresholds: OpenAI.Moderation.CategoryScores = {
-  harassment: 0.5,
-  'harassment/threatening': 0.5,
-  sexual: 0.5,
-  hate: 0.5,
-  'hate/threatening': 0.5,
-  illicit: 0.5,
-  'illicit/violent': 0.5,
-  'self-harm/intent': 0.5,
-  'self-harm/instructions': 0.5,
-  'self-harm': 0.5,
-  'sexual/minors': 0.5,
-  violence: 0.5,
-  'violence/graphic': 0.5,
-};
-
-// returns the category with the highest score above threshold
-export function getWorstScore(scores: OpenAI.Moderation.CategoryScores) {
-  // URGENT: figure out a prettier way to handle typing
-  const sc = scores as unknown as Record<string, number>;
-  const th = scoresThresholds as unknown as Record<string, number>;
-  let max = 0;
-  let category = '';
-  for (const key in sc) {
-    const over = sc[key] - th[key];
-    if (over > max) {
-      max = over;
-      category = key;
-    }
-  }
-  return { score: category ? sc[category] : 0, over: max, category };
 }
 
 export function generateRandomString(length: number): string {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import debug from 'debug';
   import { enhance } from '$app/forms';
-  import { isKevinLimerick, isKevinRejection, type KevinLimerick, type KevinRejection } from '$lib/kevin.types';
   import { getRandomSuggestion, splitLines } from '$lib/junk';
+  import type { LimerickResponse } from '$lib/kevin.types.js';
 
   const log = debug('app:home');
 
@@ -19,13 +19,8 @@
   // elements
   let shareDialog: HTMLDialogElement;
 
-  function handleLimerick(data: KevinLimerick) {
-    lyrics = splitLines(data.lyrics);
-    flavor = splitLines(data.flavor);
-  }
-
-  function handleRejection(data: KevinRejection) {
-    lyrics = [];
+  function handleResponse(data: LimerickResponse) {
+    lyrics = splitLines(data.lyrics || '');
     flavor = splitLines(data.flavor);
   }
 
@@ -54,13 +49,12 @@
         isLoading = false;
         log('got this result', result);
         if (result.type === 'success') {
-          if (isKevinLimerick(result.data)) handleLimerick(result.data);
-          else if (isKevinRejection(result.data)) handleRejection(result.data);
+          handleResponse(result.data as LimerickResponse);
         }
       };
     }}>
     <p>Write a quick, fun suggestion...</p>
-    <input type="text" name="topic" placeholder="" class="flex-auto" bind:this={topicInput} required />
+    <input type="text" name="topic" placeholder="" class="flex-auto" bind:this={topicInput} />
     <div class="flex justify-center">
       <button type="button" class="h-12 w-24" onclick={suggest}>Suggest</button>
       <button type="submit" class="h-12 w-24">Submit</button>
@@ -70,26 +64,6 @@
   {#if isLoading}
     <p class="my-4 text-center">You got Kevin thinking right now...</p>
   {/if}
-
-  <button onclick={() => shareDialog.showModal()}>Share</button>
-  <dialog bind:this={shareDialog} class="min-h-48 w-96">
-    <form
-      method="POST"
-      action="?/share"
-      use:enhance={({ cancel }) => {
-        return async ({ result }) => {
-          isLoading = false;
-          log('got this result', result);
-          if (result.type === 'success') {
-          }
-        };
-      }}>
-      <input type="hidden" name="id" value="hiddenValue" />
-      <input type="text" name="name" value="" />
-      <button type="submit" class="h-12 w-24">Share</button>
-      <button type="button" onclick={() => shareDialog.close()}>Nevermind...</button>
-    </form>
-  </dialog>
 
   <div>
     <div class="my-4 text-center">

@@ -3,19 +3,7 @@ import type { Tables } from './database.types';
 export type Limerick = Tables<'limericks'>;
 export type Rejects = Tables<'rejects'>;
 
-export type KevinLimerick = {
-  topic: string;
-  lyrics: string;
+export type LimerickResponse = {
+  lyrics?: string;
   flavor: string;
 };
-export function isKevinLimerick(obj: any): obj is KevinLimerick {
-  return obj && typeof obj.lyrics === 'string';
-}
-export type KevinRejection = {
-  topic: string;
-  reason: string;
-  flavor: string;
-};
-export function isKevinRejection(obj: any): obj is KevinRejection {
-  return obj && typeof obj.reason === 'string';
-}

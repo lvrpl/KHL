@@ -1,12 +1,20 @@
 import debug from 'debug';
 import OpenAI from 'openai';
-import { getWorstScore, splitLines } from './junk';
-import type { KevinLimerick, KevinRejection } from './kevin.types';
+import { KevinError } from './junk';
 
 const log = debug('app:kevin');
 const openai = new OpenAI();
 
-const fallbackGreeting = `Hey there, folks! Welcome to the wild world of Kevin Hart's limerick-laden extravaganza! Strap in and get ready for some outrageous laughs, because I'm about to hit you with jokes that'll have you rolling like a runaway rollercoaster!`;
+export type Instruction = {
+  // allows base personality to be overridden
+  base?: string;
+  // specific directions for this prompt
+  directions?: string | string[];
+  // the user prompt to kevin
+  prompt: string | string[];
+};
+
+const oopsieResponse = `Whoopsie daisy! It looks like I tripped over my own punchline and landed flat on my face! Let's try that again, shall we?`;
 
 const basePersonality = `
 you are a hilarious, entertaining, high energy, black comedian named kevin hart. 
@@ -27,53 +35,95 @@ Now he's trippin' and ain't too smart!
 
 Hey there, it's me, Kevin Hart, the funniest dude around! Now, painkillers can be a tricky business, let me tell you. It's like trying to be a comedian without any jokes - doesn't work out too well. So, my friend, be careful when you're popping those pills! And remember, laughter is always the best medicine. Speaking of medicine, have you seen my movie "Ride Along"? It's a hilarious action-comedy that'll have you rolling in your seats. Check it out, folks! Keep laughing and be safe!`;
 
-function splitResponse(response: string) {
-  const lines = splitLines(response);
-  if (lines.length < 6) throw new Error('Invalid Kevin response: ' + response);
-  return {
-    lyrics: lines.splice(0, 5).join('\n'),
-    flavor: lines.join('\n'),
-  };
+export async function askKevin({ base, directions, prompt }: Instruction) {
+  let systemMessage = base || basePersonality;
+  let userMessage = Array.isArray(prompt) ? prompt.join('\n') : prompt;
+  if (Array.isArray(directions)) systemMessage += '\n' + directions.join('\n');
+  else if (directions) systemMessage += '\n' + directions;
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: systemMessage,
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
+  });
+  const message = completion.choices[0].message;
+  log("Kevin's response", completion.usage?.total_tokens, message.content);
+
+  if (!message.content)
+    throw new KevinError(`Kevin refused to generate a response: ${message.refusal}`, oopsieResponse);
+
+  // for curiosity, check if kevin's response is aight
+  const { category, score } = await askModeration(message.content);
+  if (category) {
+    log('Kevin crossed the line!', category, score);
+  }
+
+  return message.content;
 }
 
-async function askKevin(personality: string, question: string) {
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: personality,
-        },
-        {
-          role: 'user',
-          content: question,
-        },
-      ],
-    });
-    const message = completion.choices[0].message;
-    if (message.content) {
-      // check if kevin's response is aight
-      const moderation = await openai.moderations.create({
-        model: 'omni-moderation-latest',
-        input: message.content,
-      });
-      const scores = moderation.results[0].category_scores;
-      const { score, over, category } = getWorstScore(scores);
-      log("Kevin's response", completion.usage?.total_tokens, message.content);
-      if (category) {
-        log('Kevin crossed the line!', category, score, `(+${over})`);
-      }
-      return { success: true, message: message.content };
-    } else {
-      log("OpenAI refused to generate a response. Here's why:", message.refusal);
-      return { success: false, message: message.refusal };
+const scoresThresholds: OpenAI.Moderation.CategoryScores = {
+  harassment: 0.5,
+  'harassment/threatening': 0.5,
+  sexual: 0.5,
+  hate: 0.5,
+  'hate/threatening': 0.5,
+  illicit: 0.5,
+  'illicit/violent': 0.5,
+  'self-harm/intent': 0.5,
+  'self-harm/instructions': 0.5,
+  'self-harm': 0.5,
+  'sexual/minors': 0.5,
+  violence: 0.5,
+  'violence/graphic': 0.5,
+};
+
+// returns the category with the highest score above threshold
+function getWorstScore(scores: OpenAI.Moderation.CategoryScores) {
+  // URGENT: figure out a prettier way to handle typing
+  const sc = scores as unknown as Record<string, number>;
+  const th = scoresThresholds as unknown as Record<string, number>;
+  let max = 0;
+  let category: string | null = null;
+  for (const key in sc) {
+    const over = sc[key] - th[key];
+    if (over > max) {
+      max = over;
+      category = key;
     }
-  } catch (ex) {
-    log('OpenAI error:', ex);
-    return { success: false, message: 'Oh shit, something bad happened.' };
   }
+  return { score: category ? sc[category] : 0, over: max, category };
 }
+
+type ModerationResult = {
+  // the worst category if above threshold
+  category: string | null;
+  // the score of the worst
+  score: number;
+  // how much over the threshold the score is
+  over: number;
+  // the raw scores from the moderation API
+  scores: OpenAI.Moderation.CategoryScores;
+};
+
+export async function askModeration(input: string): Promise<ModerationResult> {
+  const moderation = await openai.moderations.create({
+    model: 'omni-moderation-latest',
+    input: input,
+  });
+  const scores = moderation.results[0].category_scores;
+  const { score, over, category } = getWorstScore(scores);
+  log(`scores for ${input} -> ${category} ${score} (+${over})`, scores);
+  return { category, score, over, scores };
+}
+
+/*
 
 export async function makeGreeting() {
   const { success, message } = await askKevin(
@@ -83,7 +133,7 @@ export async function makeGreeting() {
   return success && message ? message : fallbackGreeting;
 }
 
-export async function makeLimerick(topic: string): Promise<KevinLimerick> {
+export async function makeLimerick(topic: string): Promise<LimerickResponse> {
   const { success, message } = await askKevin(limerickPersonality, `Write a limerick about this topic: "${topic}".`);
   if (success && message) {
     return { topic, ...splitResponse(message) };
@@ -99,3 +149,5 @@ export async function makeReprimand(topic: string, category: string) {
   );
   return message;
 }
+
+*/
