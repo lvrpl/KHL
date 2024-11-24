@@ -7,12 +7,26 @@ const COOKIE_NAME = 'kevin-session';
 
 // the data the is put in the cookie
 export type SessionData = {
+  // unique session id created for cookie
   sessionId: string;
+  // the name the user last entered when sharing a limerick
   name: string;
+  // # of limericks created
   nCreated: number;
+  // # of limericks rejected
   nRejections: number;
+  // # of consecutive moderation warnings
+  nWarnings: number;
+  // the last 10 topics the user has entered
   topics: string[];
+  // the last 10 function names invoked when of asking for a limerick
+  results: string[];
+  // the last time a limerick was created
   lastCreated: Date | null;
+  // a phobia that was created from a topic
+  phobia: string | null;
+  // when the user is banned until
+  bannedUntil: Date | null;
 };
 
 export function unpack(text: string): SessionData {
@@ -26,8 +40,12 @@ export function unpack(text: string): SessionData {
     name: obj.name || '',
     nCreated: obj.nCreated || 0,
     nRejections: obj.nRejections || 0,
+    nWarnings: obj.nWarnings || 0,
     topics: obj.topics || [],
+    results: obj.results || [],
     lastCreated: obj.lastCreated ? new Date(obj.lastCreated) : null,
+    bannedUntil: obj.bannedUntil ? new Date(obj.bannedUntil) : null,
+    phobia: obj.phobia || null,
   };
 }
 
@@ -36,12 +54,16 @@ export class Session {
   data: SessionData;
   save: () => void;
 
-  appendTopic(topic: string) {
+  finished(topic: string, result: string) {
     this.data.topics.push(topic);
     while (this.data.topics.length > 10) {
       this.data.topics.shift();
     }
-    this.save();
+    // URGENT: I like combining multiple things into a result, probably kill topics
+    this.data.results.push(`${topic} -> ${result}`);
+    while (this.data.results.length > 10) {
+      this.data.results.shift();
+    }
   }
 
   public constructor(cookies: Cookies) {

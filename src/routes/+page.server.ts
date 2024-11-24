@@ -23,16 +23,27 @@ export const actions = {
     const formData = await request.formData();
     const topic = (formData.get('topic') as string).trim();
 
+    let response: { lyrics?: string; flavor: string };
     try {
-      const response = await limerickPlease(topic, session);
-      return response;
+      response = await limerickPlease(topic, session);
     } catch (ex) {
       console.error('Unhandled limerick exception', ex);
-      if (ex instanceof KevinError) return { flavor: ex.flavor };
-      else return { flavor: 'I tried, but I just could not come up with a limerick about that. Sorry!' };
-    } finally {
-      session.save();
+      response = {
+        flavor:
+          ex instanceof KevinError
+            ? ex.flavor
+            : "There once was a dev who wrote code\nBut the limerick server did explode\nThe error was a fright\nIt was a KevinError, right?\nNow the dev's in a debugging mode!",
+      };
     }
+
+    session.save();
+    return {
+      warnings: session.data.nWarnings,
+      nogoSeconds: session.data.bannedUntil
+        ? Math.max(0, Math.floor((session.data.bannedUntil.getTime() - Date.now()) / 1000))
+        : 0,
+      ...response,
+    };
   },
 
   share: async ({ cookies, request }) => {

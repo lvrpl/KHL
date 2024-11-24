@@ -60,10 +60,10 @@ export async function askKevin({ base, directions, prompt }: Instruction) {
     throw new KevinError(`Kevin refused to generate a response: ${message.refusal}`, oopsieResponse);
 
   // for curiosity, check if kevin's response is aight
-  const { category, score } = await askModeration(message.content);
-  if (category) {
-    log('Kevin crossed the line!', category, score);
-  }
+  //const { category, score } = await askModeration(message.content);
+  //if (category) {
+  //  log('Kevin crossed the line!', category, score);
+  //}
 
   return message.content;
 }
@@ -101,7 +101,7 @@ function getWorstScore(scores: OpenAI.Moderation.CategoryScores) {
   return { score: category ? sc[category] : 0, over: max, category };
 }
 
-type ModerationResult = {
+export type ModerationResult = {
   // the worst category if above threshold
   category: string | null;
   // the score of the worst
@@ -122,32 +122,3 @@ export async function askModeration(input: string): Promise<ModerationResult> {
   log(`scores for ${input} -> ${category} ${score} (+${over})`, scores);
   return { category, score, over, scores };
 }
-
-/*
-
-export async function makeGreeting() {
-  const { success, message } = await askKevin(
-    basePersonality,
-    'Say one sentence to greet the user to your website that generates lyrics. Make sure you include your name.',
-  );
-  return success && message ? message : fallbackGreeting;
-}
-
-export async function makeLimerick(topic: string): Promise<LimerickResponse> {
-  const { success, message } = await askKevin(limerickPersonality, `Write a limerick about this topic: "${topic}".`);
-  if (success && message) {
-    return { topic, ...splitResponse(message) };
-  } else {
-    throw new Error('Kevin refused to generate a response: ' + message);
-  }
-}
-
-export async function makeReprimand(topic: string, category: string) {
-  const { success, message } = await askKevin(
-    basePersonality,
-    `The user asked you to make a limerick about ${topic} but its not allowed because its considered ${category}. Write a reprimand to the user but keep it funny and promote something of yours.`,
-  );
-  return message;
-}
-
-*/
