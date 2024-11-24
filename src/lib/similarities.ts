@@ -8,7 +8,7 @@ const log = debug('app:ai:embeddings');
 export class Similarities {
   private values: Record<string, number> = {};
 
-  public constructor(input: string[], output: CreateEmbeddingResponse) {
+  private constructor(input: string[], output: CreateEmbeddingResponse) {
     for (let i = 0; i < input.length; i++) {
       for (let j = i + 1; j < input.length; j++) {
         const values1 = output.data[i].embedding;

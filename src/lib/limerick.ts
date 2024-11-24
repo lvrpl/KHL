@@ -32,11 +32,35 @@ async function computeSimilarities(topic: string, state: State, session: Session
   return state.similarities;
 }
 
+// creates a response for a user that has been warned and possibly get a timeout
+async function warnUser(session: Session, reason: string): Promise<CheckResponse> {
+  let timeout = false;
+  session.data.nWarnings++;
+  session.data.nRejections++;
+  if (session.data.nWarnings >= 3) {
+    session.data.nWarnings = 0;
+    session.data.nTimeouts++;
+    timeout = true;
+  }
+  const flavor = await askKevin({
+    prompt: timeout
+      ? `be outraged and tell the user they got their third and final warning for ${reason} and that they need a timeout.`
+      : `be outraged and tell the user they're getting a warning for ${reason}. then newline. say its warning #${session.data.nWarnings} and if they get 3 warnings, tell them they're getting a timeout.`,
+  });
+  // do this after long running askKevin call
+  if (timeout) session.data.timeoutUntil = new Date(Date.now() + 60 * 1000 * session.data.nTimeouts);
+  return { flavor };
+}
+
 type CheckResponse = {
+  greeting?: string;
   lyrics?: string;
   flavor: string;
 };
-type CheckFunction = (state: { topic: string; state: State; session: Session }) => Promise<CheckResponse | void | null>;
+type CheckFunction = {
+  (state: { topic: string; state: State; session: Session }): Promise<CheckResponse | void | null>;
+  thing?: string;
+};
 
 const stubbedLimerick: CheckFunction = async ({ session, state }) => {
   session.data.nCreated++;
@@ -51,7 +75,7 @@ Now he's trippin' and ain't too smart!`,
 };
 
 const userBanned: CheckFunction = async ({ session }) => {
-  if (session.data.bannedUntil && session.data.bannedUntil > new Date()) {
+  if (session.inTimeout()) {
     const flavor = await askKevin({
       directions: directionShort,
       prompt: 'tell me I have been temporarily banned and cant make limericks',
@@ -78,33 +102,42 @@ const topicTooShort: CheckFunction = async ({ topic, session }) => {
   }
 };
 
+const topicTooLong: CheckFunction = async ({ topic, session }) => {
+  if (topic.length >= 50) {
+    const flavor = await askKevin({
+      prompt: 'tell someone off for asking for a limerick with a prompt that is too long.',
+    });
+    return { flavor };
+  }
+};
+
 const topicFailsModeration: CheckFunction = async ({ topic, state, session }) => {
   const { category, scores, score } = (state.moderation = await askModeration(topic));
+  // URGENT: slightly different prompt if they repeat topic
   if (category) {
-    const flavor = await askKevin({
-      directions: directionMedium,
-      prompt: `tell someone they're not allowed to make a limerick about "${topic}"  because its considered ${category}. Write a reprimand to the user and promote something of yours.`,
-    });
+    const response = await warnUser(
+      session,
+      `user tried to make a limerick about ${topic} which is considered ${category}.`,
+    );
     supabase.from('rejects').insert({
       topic,
       category,
       score,
       sessionId: session.data.sessionId,
       all: scores,
-      flavor,
+      flavor: response.flavor,
     });
-    session.data.nRejections++;
-    return { flavor, reason: category };
+    return response;
   }
 };
 
 const phobiaCreated: CheckFunction = async ({ topic, session }) => {
   if (!session.data.phobia && topic.length >= 4 && Math.random() < probabilities.createPhobia) {
     const flavor = await askKevin({
-      prompt: `apologize that you can't make a limerick about ${topic}. then its explain it's because you're scared of ${topic}. suggest to ask for a limerick about something else. then promote something of yours.`,
+      prompt: `apologize that you can't make a limerick about ${topic}. then its explain it's because you're scared of ${topic}. suggest to ask for a limerick about something else.`,
     });
     session.data.phobia = topic;
-    return { flavor, reason: `phobia of ${session.data.phobia}` };
+    return { flavor };
   }
 };
 
@@ -112,15 +145,31 @@ const phobiaRejected: CheckFunction = async ({ topic, state, session }) => {
   if (!session.data.phobia) return;
   const similarities = await computeSimilarities(topic, state, session);
   if (similarities.getValue(topic, session.data.phobia) > 0.4) {
-    const flavor = await askKevin({
-      prompt: `reprimand the user for asking you to make a limerick about ${topic} when they know you're scared of ${session.data.phobia}. then promote something of yours.`,
-    });
-    session.data.nRejections++;
-    return { flavor, reason: `phobia of ${session.data.phobia}` };
+    return await warnUser(
+      session,
+      `user tried to make a limerick about ${topic} when you're scared of ${session.data.phobia}.`,
+    );
   }
 };
 
-const actualLimerick: CheckFunction = async ({ topic, session }) => {
+const topicRepeated: CheckFunction = async ({ topic, state, session }) => {
+  if (topic == session.data.topics.at(-1)) {
+    // they did it twice in a row
+    if (topic == session.data.topics.at(-2)) {
+      return await warnUser(
+        session,
+        `user wanted you to make a likemick about ${topic} multiple in a row and you hate repeats`,
+      );
+    } else {
+      const flavor = await askKevin({
+        prompt: `tell someone off because they just asked you to do a limerick about ${topic} and you dont do repeats. they must not have liked your limerick. then newline. then tell them to ask for a limerick about something else and promote something of yours.`,
+      });
+      return { flavor };
+    }
+  }
+};
+
+const actualLimerick: CheckFunction = async ({ topic, state, session }) => {
   const response = await askKevin({
     directions: [
       'you will write limericks, but you will always include your name in the limerick somewhere, without exception.',
@@ -139,21 +188,25 @@ const actualLimerick: CheckFunction = async ({ topic, session }) => {
   const flavor = lines.join('\n');
   await supabase.from('limericks').insert({
     topic,
-    //scores,
+    scores: state.moderation?.scores,
     sessionId: session.data.sessionId,
     lyrics,
     flavor,
   });
+  session.data.nWarnings = 0;
   session.data.nCreated++;
+  session.data.lastCreated = new Date();
   return { lyrics, flavor };
 };
 
 const checks: CheckFunction[] = [
   userBanned,
   topicTooShort,
+  topicTooLong,
   topicFailsModeration,
   phobiaCreated,
   phobiaRejected,
+  topicRepeated,
   actualLimerick,
 ];
 

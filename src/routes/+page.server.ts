@@ -1,20 +1,36 @@
-import { getRandomGreeting, KevinError } from '$lib/junk';
+import { getRandomGreeting, getRandomGreetingTimeout, getRandomGreetingTimeoutOver, KevinError } from '$lib/junk';
 import debug from 'debug';
-import OpenAI from 'openai';
 import { Session } from '$lib/session';
 import { limerickPlease } from '$lib/limerick';
-import type { LimerickResponse } from '$lib/kevin.types.js';
+import type { KevinState, LimerickResponse } from '$lib/kevin.types.js';
 
 const log = debug('app:home');
-const openai = new OpenAI();
+
+function includeState<T>(session: Session, data: T): T & KevinState {
+  return {
+    ...data,
+    warnings: session.data.nWarnings,
+    timeout: session.data.timeoutUntil
+      ? Math.max(0, Math.floor((session.data.timeoutUntil.getTime() - Date.now()) / 1000))
+      : 0,
+  };
+}
 
 export async function load({ cookies }) {
   const session = new Session(cookies);
-  session.data.nCreated++;
-  session.data.lastCreated = new Date();
-  session.save();
 
-  return { greeting: getRandomGreeting() /* session: session.data */ };
+  let greeting: string;
+  if (session.inTimeout()) {
+    greeting = getRandomGreetingTimeout();
+  } else if (session.data.timeoutUntil) {
+    session.data.timeoutUntil = null;
+    greeting = getRandomGreetingTimeoutOver();
+  } else {
+    greeting = getRandomGreeting();
+  }
+
+  session.save();
+  return includeState(session, { greeting });
 }
 
 export const actions = {
@@ -37,13 +53,7 @@ export const actions = {
     }
 
     session.save();
-    return {
-      warnings: session.data.nWarnings,
-      nogoSeconds: session.data.bannedUntil
-        ? Math.max(0, Math.floor((session.data.bannedUntil.getTime() - Date.now()) / 1000))
-        : 0,
-      ...response,
-    };
+    return includeState(session, response);
   },
 
   share: async ({ cookies, request }) => {
